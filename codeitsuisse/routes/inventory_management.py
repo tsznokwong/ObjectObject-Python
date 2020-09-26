@@ -41,7 +41,7 @@ def inventory_management():
                 no_operation + 1
             )
             
-        elif remaining_item[0] == remaining_search_item[0]:
+        elif remaining_item[0].lower() == remaining_search_item[0].lower():
             # exact match
             # print("3", remaining_search_item, remaining_item, constructed, no_operation)
             diverge(
@@ -51,7 +51,7 @@ def inventory_management():
                 no_operation
             )
         
-        elif len(remaining_item) > 1 and remaining_item[1] == remaining_search_item[0]:
+        elif len(remaining_item) > 1 and remaining_item[1].lower() == remaining_search_item[0].lower():
             # try insertion
             # print("4.1", remaining_search_item, remaining_item[1:], constructed + '+' + remaining_item[0], no_operation+1)
             diverge(
@@ -61,7 +61,7 @@ def inventory_management():
                 no_operation + 1
             )
 
-        elif len(remaining_search_item) > 1 and remaining_item[0] == remaining_search_item[1]:
+        elif len(remaining_search_item) > 1 and remaining_item[0].lower() == remaining_search_item[1].lower():
             # try deletion
             # print("6", remaining_search_item[1:], remaining_item, constructed + "-" + remaining_search_item[0], no_operation+1)
             diverge(
@@ -71,7 +71,7 @@ def inventory_management():
                 no_operation + 1
             )
 
-        elif len(remaining_search_item) > 1 and len(remaining_item) > 1 and remaining_item[1] == remaining_search_item[1]:
+        elif len(remaining_search_item) > 1 and len(remaining_item) > 1 and remaining_item[1].lower() == remaining_search_item[1].lower():
             # try substitution
             # print("5.1", remaining_search_item[1:], remaining_item[1:], constructed + remaining_item[0], no_operation+1)
             diverge(
@@ -82,6 +82,15 @@ def inventory_management():
             )
 
         else:
+            # try insertion
+            # print("4.1", remaining_search_item, remaining_item[1:], constructed + '+' + remaining_item[0], no_operation+1)
+            diverge(
+                remaining_search_item,
+                remaining_item[1:],
+                constructed + '+' + remaining_item[0],
+                no_operation + 1
+            )
+
             # try substitution
             # print("5", remaining_search_item[1:], remaining_item[1:], constructed + remaining_item[0], no_operation+1)
             diverge(
