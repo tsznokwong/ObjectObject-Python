@@ -109,19 +109,22 @@ def inventory_management():
                 no_operation + 1
             )
 
-    data = data[0]
-    result_found = list()
-    search_item = data["searchItemName"]
-    for item in data["items"]:
-        found = list()
-        search_item = search_item.lower()
-        item = item.lower()
-        diverge(search_item, item)
-        found.sort(key=lambda x: x[3])
-        result_found.append(found[0][2:])
-    result_found.sort(key=lambda x: x[0]) # sort by alphatic
-    result_found.sort(key=lambda x: x[1]) # sort by operation
-    result_found = [result[0] for result in result_found]
-    if len(result_found) > 10:
-        result_found = result_found[:10]
-    return json.dumps(result_found)
+    inputAll = list()
+    for input in data:
+        result_found = list()
+        search_item = input["searchItemName"]
+        for item in input["items"]:
+            found = list()
+            search_item = search_item.lower()
+            item = item.lower()
+            diverge(search_item, item)
+            found.sort(key=lambda x: x[3])
+            result_found.append(found[0][2:])
+        result_found.sort(key=lambda x: x[0]) # sort by alphatic
+        result_found.sort(key=lambda x: x[1]) # sort by operation
+        result_found = [result[0] for result in result_found]
+        if len(result_found) > 10:
+            result_found = result_found[:10]
+        inputAll.append({"searchItemName": result_found, "searchResult":result_found})
+
+    return json.dumps(inputAll)
