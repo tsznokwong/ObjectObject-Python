@@ -11,3 +11,4 @@ import codeitsuisse.routes.social_distancing
 import codeitsuisse.routes.cluster
 import codeitsuisse.routes.optimizedportfolio
 import codeitsuisse.routes.swaphedge
+import codeitsuisse.routes.bucket_fill
