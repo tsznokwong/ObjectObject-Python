@@ -68,6 +68,8 @@ def revisitgeometry():
         shape_slope, shape_intercept = to_slope_intercept(pt, last_pt)
         intersect = get_intersection(line_slope, line_intercept, shape_slope, shape_intercept)
         if len(intersect) and check_inbound(pt, last_pt, intersect[0]):
+            intersect[0]['x'] = round(intersect[0]['x'], 2)
+            intersect[0]['y'] = round(intersect[0]['y'], 2)
             intersection_points += intersect
 
         logging.info("x")
