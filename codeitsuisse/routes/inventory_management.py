@@ -12,22 +12,25 @@ logger = logging.getLogger(__name__)
 @app.route('/inventory-management', methods=['POST'])
 def inventory_management():
     data = request.get_json()
-    logging.info("inventory-management")
-    logging.info(data)
 
     found = list()
-    def diverge(remaining_search_item, remaining_item, constructed="", no_operation=0):
+    def diverge(remaining_search_item, remaining_item, original_remaining_item, constructed="", no_operation=0):
         # print(remaining_search_item, remaining_item, constructed, no_operation)
+
+        if no_operation > found[0][0]:
+            return
 
         if len(remaining_search_item) == 0 and len(remaining_item) == 0:
             # terminating case
-            found.append([remaining_search_item, remaining_item, constructed, no_operation])
+            found.append([remaining_search_item, remaining_item, original_remaining_item, constructed, no_operation])
+            found[0][0] = no_operation if found[0][0] > no_operation else found[0][0]
         
         elif len(remaining_search_item) > 0 and len(remaining_item) == 0:
             # only remaining_search_item left
             diverge(
                 remaining_search_item[1:], 
                 remaining_item, 
+                original_remaining_item, 
                 constructed + "-" + remaining_search_item[0], 
                 no_operation + 1
             )
@@ -37,6 +40,7 @@ def inventory_management():
             diverge(
                 remaining_search_item, 
                 remaining_item[1:], 
+                original_remaining_item, 
                 constructed + "+" + remaining_item[0],
                 no_operation + 1
             )
@@ -47,6 +51,7 @@ def inventory_management():
             diverge(
                 remaining_search_item[1:], 
                 remaining_item[1:], 
+                original_remaining_item, 
                 constructed + remaining_item[0],
                 no_operation
             )
@@ -57,6 +62,7 @@ def inventory_management():
             diverge(
                 remaining_search_item,
                 remaining_item[1:],
+                original_remaining_item, 
                 constructed + '+' + remaining_item[0],
                 no_operation + 1
             )
@@ -67,6 +73,7 @@ def inventory_management():
             diverge(
                 remaining_search_item[1:],
                 remaining_item,
+                original_remaining_item, 
                 constructed + "-" + remaining_search_item[0],
                 no_operation + 1
             )
@@ -77,6 +84,7 @@ def inventory_management():
             diverge(
                 remaining_search_item[1:],
                 remaining_item[1:],
+                original_remaining_item, 
                 constructed + remaining_item[0],
                 no_operation + 1
             )
@@ -84,47 +92,62 @@ def inventory_management():
         else:
             # try insertion
             # print("4.1", remaining_search_item, remaining_item[1:], constructed + '+' + remaining_item[0], no_operation+1)
-            diverge(
-                remaining_search_item,
-                remaining_item[1:],
-                constructed + '+' + remaining_item[0],
-                no_operation + 1
-            )
+            # diverge(
+            #     remaining_search_item,
+            #     remaining_item[1:],
+            #     original_remaining_item, 
+            #     constructed + '+' + remaining_item[0],
+            #     no_operation + 1
+            # )
 
-            # try substitution
-            # print("5", remaining_search_item[1:], remaining_item[1:], constructed + remaining_item[0], no_operation+1)
-            diverge(
-                remaining_search_item[1:],
-                remaining_item[1:],
-                constructed + remaining_item[0],
-                no_operation + 1
-            )
+            # # try substitution
+            # # print("5", remaining_search_item[1:], remaining_item[1:], constructed + remaining_item[0], no_operation+1)
+            # diverge(
+            #     remaining_search_item[1:],
+            #     remaining_item[1:],
+            #     original_remaining_item, 
+            #     constructed + remaining_item[0],
+            #     no_operation + 1
+            # )
 
-            # try deletion
-            # print("6", remaining_search_item[1:], remaining_item, constructed + "-" + remaining_search_item[0], no_operation+1)
+            # # try deletion
+            # # print("6", remaining_search_item[1:], remaining_item, constructed + "-" + remaining_search_item[0], no_operation+1)
             diverge(
                 remaining_search_item[1:],
                 remaining_item,
+                original_remaining_item, 
                 constructed + "-" + remaining_search_item[0],
                 no_operation + 1
             )
 
-    inputAll = list()
+    with open("in" + '.json', 'w') as outfile:
+        json.dump(data, outfile)
+
+    outAll = list()
     for input in data:
         result_found = list()
         search_item = input["searchItemName"]
+
+        with open(search_item + '.json', 'w') as outfile:
+            json.dump(data, outfile)
+
         for item in input["items"]:
-            found = list()
-            search_item = search_item.lower()
-            item = item.lower()
-            diverge(search_item, item)
+            found = [[math.inf]] # current min operation
+            diverge(search_item, item, item)
+            found = found[1:]
             found.sort(key=lambda x: x[3])
             result_found.append(found[0][2:])
         result_found.sort(key=lambda x: x[0]) # sort by alphatic
-        result_found.sort(key=lambda x: x[1]) # sort by operation
-        result_found = [result[0] for result in result_found]
+        result_found.sort(key=lambda x: x[2]) # sort by operation
+        result_found = [result[1] for result in result_found]
         if len(result_found) > 10:
             result_found = result_found[:10]
-        inputAll.append({"searchItemName": result_found, "searchResult":result_found})
+        outAll.append({"searchItemName": search_item, "searchResult":result_found})
 
-    return json.dumps(inputAll)
+        with open(search_item  + "_out" + '.json', 'w') as outfile:
+            json.dump({"searchItemName": search_item, "searchResult":result_found}, outfile)
+
+    with open("out" + '.json', 'w') as outfile:
+        json.dump(outAll, outfile)
+
+    return json.dumps(outAll)
