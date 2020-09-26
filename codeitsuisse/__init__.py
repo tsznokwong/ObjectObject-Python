@@ -9,3 +9,4 @@ import codeitsuisse.routes.inventory_management
 import codeitsuisse.routes.clean_floor
 import codeitsuisse.routes.social_distancing
 import codeitsuisse.routes.driverless_car
+import codeitsuisse.routes.cluster
