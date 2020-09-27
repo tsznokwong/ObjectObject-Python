@@ -24,7 +24,7 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('localhost', 0))
     if os.path.isfile('./local'):
-        port = 8080
+        port = 3000
     else:
         port = sock.getsockname()[1]
     sock.close()
