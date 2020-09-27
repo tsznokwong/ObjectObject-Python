@@ -1,13 +1,4 @@
-import logging
-import json
 import math
-
-from flask import request, jsonify
-
-from codeitsuisse import app
-
-logger = logging.getLogger(__name__)
-
 from lxml import etree
 import cv2
 import numpy as np
@@ -159,56 +150,47 @@ def intersect_polyline(water, polyline):
 
     print("intersect", polyline)
 
+input = b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="153" height="306"><circle cx="76" cy="0" r="1" fill="none" stroke="blue" /><polyline fill="none" stroke="black" points="0,88 0,137 31,137 31,88" /><polyline fill="none" stroke="black" points="2,77 7,82" /><polyline fill="none" stroke="black" points="15,182 15,234 18,234 18,182" /><polyline fill="none" stroke="black" points="76,3 4,75" /><polyline fill="none" stroke="black" points="18,142 18,178 38,178 38,142" /><polyline fill="none" stroke="black" points="88,177 88,206 107,206 107,177" /></svg>'
 
+width, height, water_sources, polylines = parseData(input)
+polylines.append({'points': [[0, height], [width, height]], 'intersect_y': 2049, 'watered': False, 'derived_water': [], 'type': 'pipe'})
+draw_water_sources = list()
+# calc
+while len(water_sources):
+    water = water_sources.pop()
 
-@app.route('/bucket-fill', methods=['POST'])
-def bucket_fill():
-    input = request.get_data()
-    print(input)
-
-    input = b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="153" height="306"><circle cx="76" cy="0" r="1" fill="none" stroke="blue" /><polyline fill="none" stroke="black" points="0,88 0,137 31,137 31,88" /><polyline fill="none" stroke="black" points="2,77 7,82" /><polyline fill="none" stroke="black" points="15,182 15,234 18,234 18,182" /><polyline fill="none" stroke="black" points="76,3 4,75" /><polyline fill="none" stroke="black" points="18,142 18,178 38,178 38,142" /><polyline fill="none" stroke="black" points="88,177 88,206 107,206 107,177" /></svg>'
-
-    width, height, water_sources, polylines = parseData(input)
-    polylines.append({'points': [[0, height], [width, height]], 'intersect_y': 2049, 'watered': False, 'derived_water': [], 'type': 'pipe'})
-    draw_water_sources = list()
-    # calc
-    while len(water_sources):
-        water = water_sources.pop()
-
-        for polyline in polylines:
-            intersect_polyline(water, polyline)
-        polylines.sort(key=lambda x: x["intersect_y"])
-
-        print("polylines", polylines[0])
-        print(water_sources)
-        print()
-
-        if polylines[0]["watered"]:
-            continue
-        polylines[0]["watered"] = True
-        water_sources += polylines[0]["derived_water"]
-        water["end_y"] = polylines[0]["intersect_y"]
-        draw_water_sources.append(water)
-
-        # draw
-        img = np.zeros((height,width,3), np.uint8)
-        def draw(points, color=(255,0,0), line=1):
-            for i in range(len(points) - 1):
-                a = tuple(points[i])
-                b = tuple(points[i+1])
-                cv2.line(img, a, b,color,line)
-        for water in draw_water_sources:
-            points = [[water["cx"], water["cy"]], [water["cx"], int(water["end_y"])]]
-            draw(points, (0,0,255), 5)
-        for polyline in polylines:
-            draw(polyline["points"], (0, 255, 255) if polyline["watered"] else (0,255,0))
-        cv2.imshow("win", img)
-        # cv2.waitKey(0)
-
-    volume = 0
     for polyline in polylines:
-        if polyline["type"] == "bucket":
-            volume += polyline["volume"]
-    print(volume)
+        intersect_polyline(water, polyline)
+    polylines.sort(key=lambda x: x["intersect_y"])
 
-    return json.dumps({"result": volume})
+    print("polylines", polylines[0])
+    print(water_sources)
+    print()
+
+    if polylines[0]["watered"]:
+        continue
+    polylines[0]["watered"] = True
+    water_sources += polylines[0]["derived_water"]
+    water["end_y"] = polylines[0]["intersect_y"]
+    draw_water_sources.append(water)
+
+    # draw
+    img = np.zeros((height,width,3), np.uint8)
+    def draw(points, color=(255,0,0), line=1):
+        for i in range(len(points) - 1):
+            a = tuple(points[i])
+            b = tuple(points[i+1])
+            cv2.line(img, a, b,color,line)
+    for water in draw_water_sources:
+        points = [[water["cx"], water["cy"]], [water["cx"], int(water["end_y"])]]
+        draw(points, (0,0,255), 5)
+    for polyline in polylines:
+        draw(polyline["points"], (0, 255, 255) if polyline["watered"] else (0,255,0))
+    cv2.imshow("win", img)
+    # cv2.waitKey(0)
+
+volume = 0
+for polyline in polylines:
+    if polyline["type"] == "bucket":
+        volume += polyline["volume"]
+print(volume)
