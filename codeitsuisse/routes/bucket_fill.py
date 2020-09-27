@@ -12,6 +12,24 @@ from lxml import etree
 import cv2
 import numpy as np
 
+def isBucketInBucket(bucket, polylines):
+    bx1 = bucket["points"][0][0]
+    by1 = bucket["points"][0][1]
+    bx2 = bucket["points"][2][0]
+    by2 = bucket["points"][2][1]
+
+    for polyline in polylines:
+        if polyline["type"] == "pipe":
+            continue
+
+        x1 = polyline["points"][0][0]
+        y1 = polyline["points"][0][1]
+        x2 = polyline["points"][2][0]
+        y2 = polyline["points"][2][1]
+
+        if (bx1 >= x1) and (bx2 <= x2) and (by1 > y1) and (by2 < y2):
+            bucket["volume"] = 0
+
 def parseData(input):
     svg = etree.fromstring(input)
     width = 0
@@ -54,7 +72,7 @@ def parseData(input):
             del polyline["fill"]
             del polyline["stroke"]
 
-            polyline["intersect_y"] = 2049
+            polyline["intersect_y"] = 1000000
             polyline["watered"] = False
             polyline["derived_water"] = list()
 
@@ -67,6 +85,11 @@ def parseData(input):
                 polyline["type"] = "pipe"
 
             polylines.append(polyline)
+
+    for polyline in polylines:
+        if polyline["type"] == "pipe":
+            continue
+        isBucketInBucket(polyline, polylines)
 
     return width, height, water_sources, polylines
 
@@ -112,7 +135,7 @@ def check_inbound(bound_a, bound_b, point):
     return True
 
 def intersect_polyline(water, polyline):
-    polyline["intersect_y"] = 2049
+    polyline["intersect_y"] = 1000000
     polyline["derived_water"] = list()
 
     if polyline["type"] == "pipe":
@@ -155,43 +178,62 @@ def intersect_polyline(water, polyline):
         else:
             polyline["derived_water"] = [{"cx": x2+1, "cy": y2}, {"cx": x1-1, "cy": y1}]
     for water in polyline["derived_water"]:
-        water["end_y"] = int(intersect[0]["y"])
+        water["end_y"] = 1000000
 
-    print("intersect", polyline)
+    # print("intersect", polyline)
 
-
-
+count = 0
 @app.route('/bucket-fill', methods=['POST'])
 def bucket_fill():
-    input = request.get_data()
-    print(input)
+    # print()
+    # print()
+    # print()
 
-    input = b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="153" height="306"><circle cx="76" cy="0" r="1" fill="none" stroke="blue" /><polyline fill="none" stroke="black" points="0,88 0,137 31,137 31,88" /><polyline fill="none" stroke="black" points="2,77 7,82" /><polyline fill="none" stroke="black" points="15,182 15,234 18,234 18,182" /><polyline fill="none" stroke="black" points="76,3 4,75" /><polyline fill="none" stroke="black" points="18,142 18,178 38,178 38,142" /><polyline fill="none" stroke="black" points="88,177 88,206 107,206 107,177" /></svg>'
+    input = request.get_data()
+    # print(input)
+
+    # input = b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="153" height="306"><circle cx="76" cy="0" r="1" fill="none" stroke="blue" /><polyline fill="none" stroke="black" points="0,88 0,137 31,137 31,88" /><polyline fill="none" stroke="black" points="2,77 7,82" /><polyline fill="none" stroke="black" points="15,182 15,234 18,234 18,182" /><polyline fill="none" stroke="black" points="76,3 4,75" /><polyline fill="none" stroke="black" points="18,142 18,178 38,178 38,142" /><polyline fill="none" stroke="black" points="88,177 88,206 107,206 107,177" /></svg>'
 
     width, height, water_sources, polylines = parseData(input)
-    polylines.append({'points': [[0, height], [width, height]], 'intersect_y': 2049, 'watered': False, 'derived_water': [], 'type': 'pipe'})
+    
+    has_bucket = False
+    for polyline in polylines:
+        if polyline["type"] == "bucket":
+            has_bucket = True
+    if not has_bucket:
+        return json.dumps({"result": 0})
+
+    # print(width, height, water_sources, polylines)
+
+    polylines.append({'points': [[0, height], [width, height]], 'intersect_y': 1000000, 'watered': False, 'derived_water': [], 'type': 'pipe'})
     draw_water_sources = list()
     # calc
+    global count
+    count += 1
+    local_count = 0
     while len(water_sources):
+        # print("in loop")
+
         water = water_sources.pop()
+        draw_water_sources.append(water)
 
         for polyline in polylines:
             intersect_polyline(water, polyline)
         polylines.sort(key=lambda x: x["intersect_y"])
 
-        print("polylines", polylines[0])
-        print(water_sources)
-        print()
+        # print("polylines", polylines[0])
+        # print(water_sources)
+        # print()
 
-        if polylines[0]["watered"]:
-            continue
-        polylines[0]["watered"] = True
-        water_sources += polylines[0]["derived_water"]
-        water["end_y"] = polylines[0]["intersect_y"]
-        draw_water_sources.append(water)
+        if not polylines[0]["watered"]:
+            polylines[0]["watered"] = True
+            water_sources += polylines[0]["derived_water"]
+            water["end_y"] = polylines[0]["intersect_y"]
 
+        # print("draw")
         # draw
         img = np.zeros((height,width,3), np.uint8)
+        img += 255
         def draw(points, color=(255,0,0), line=1):
             for i in range(len(points) - 1):
                 a = tuple(points[i])
@@ -199,16 +241,24 @@ def bucket_fill():
                 cv2.line(img, a, b,color,line)
         for water in draw_water_sources:
             points = [[water["cx"], water["cy"]], [water["cx"], int(water["end_y"])]]
-            draw(points, (0,0,255), 5)
+            draw(points, (0,0,255), 1)
         for polyline in polylines:
-            draw(polyline["points"], (0, 255, 255) if polyline["watered"] else (0,255,0))
-        cv2.imshow("win", img)
-        # cv2.waitKey(0)
+            if polyline["type"] == "bucket" and polyline["volume"] == 0:
+                draw(polyline["points"], (0, 0, 0))
+            else:
+                draw(polyline["points"], (0, 255, 255) if polyline["watered"] else (0,255,0))
+        # print("draw_done")
+
+        local_count += 1
+        cv2.imwrite("w" + str(count) + "_" + str(local_count) + ".jpg", img)
+        # cv2.imshow("w" + str(count), img)
+
+    # print("loop done")
 
     volume = 0
     for polyline in polylines:
-        if polyline["type"] == "bucket":
+        if polyline["type"] == "bucket" and polyline["watered"]:
             volume += polyline["volume"]
-    print(volume)
+    print("end", count, " ", volume)
 
     return json.dumps({"result": volume})
